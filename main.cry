@@ -1,0 +1,7 @@
+final name = "Eddie";
+let age = 13;
+
+final bossName = "Crystal";
+let bossAge = 1.5;
+
+let todo = "AddWhitespacesToStringsAndAllowAnyCharacterWithinQuoteMarks";

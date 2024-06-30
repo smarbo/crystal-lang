@@ -1,6 +1,6 @@
 use core::panic;
 
-use super::lexer::Token;
+use super::lexer::{MathToken, Token};
 
 // ASTNode Enum
 #[derive(Debug, PartialEq, Clone)]
@@ -16,6 +16,11 @@ pub enum ASTNode {
         left: Box<ASTNode>,
         op: Token,
         right: Box<ASTNode>,
+    },
+    CompoundAssign {
+        ident: String,
+        op: Token,
+        value: Box<ASTNode>,
     },
 }
 
@@ -45,7 +50,6 @@ impl Parser {
         while self.current_token() != &Token::EOF {
             program.push(self.statement());
         }
-
         ASTNode::Program(program)
     }
 
@@ -53,7 +57,7 @@ impl Parser {
         match self.current_token() {
             Token::Let => self.let_statement(),
             Token::Final => self.final_statement(),
-            _ => self.expression(),
+            _ => self.assignment_or_expression(),
         }
     }
 
@@ -97,6 +101,7 @@ impl Parser {
 
     pub fn expression(&mut self) -> ASTNode {
         let mut left = self.term();
+        println!("{:?}", self.tokens);
         while matches!(self.current_token(), Token::Arithmetic(..)) {
             let op = self.current_token().clone();
             self.advance();
@@ -110,24 +115,64 @@ impl Parser {
         left
     }
 
+    pub fn assignment_or_expression(&mut self) -> ASTNode {
+        let expr = self.expression();
+        match expr {
+            ASTNode::BinaryOp {
+                ref left,
+                ref op,
+                ref right,
+            } => {
+                match op {
+                    Token::Arithmetic(MathToken::PlusEq)
+                    | Token::Arithmetic(MathToken::MinusEq)
+                    | Token::Arithmetic(MathToken::MultiplyEq)
+                    | Token::Arithmetic(MathToken::DivideEq) => {
+                        // Expecting compound assignment
+                        if let ASTNode::Identifier(ident) = *left.clone() {
+                            let value = right.clone();
+                            if *self.current_token() != Token::Semicolon {
+                                panic!("CRY.ERROR: Expected ';' after expression");
+                            }
+                            self.advance();
+                            ASTNode::CompoundAssign {
+                                ident,
+                                op: op.clone(),
+                                value: Box::new(*value),
+                            }
+                        } else {
+                            panic!("CRY.ERROR: Expected identifier for compound assignment");
+                        }
+                    }
+                    _ => expr.clone(), // Return the original expression node if not a compound assignment
+                }
+            }
+            _ => expr, // Return the original expression node if not a binary operation
+        }
+    }
+
     pub fn term(&mut self) -> ASTNode {
         match self.current_token() {
             Token::Number(n) => {
                 let number = *n;
                 self.advance();
                 ASTNode::Number(number)
-            },
+            }
             Token::Identifier(i) => {
                 let ident = i.clone();
                 self.advance();
                 ASTNode::Identifier(ident)
-            },
+            }
             Token::String(v) => {
                 let value = v.clone();
                 self.advance();
                 ASTNode::String(value)
-            },
-            _ => panic!("CRY.ERROR: Unexpected token: {:?}", self.current_token()),
+            }
+
+            _ => {
+                println!("{:?}", self.tokens);
+                panic!("CRY.ERROR: Unexpected token: {:?}", self.current_token())
+            }
         }
     }
 }

@@ -4,6 +4,10 @@ pub enum MathToken {
     Minus,
     Divide,
     Multiply,
+    PlusEq,
+    MinusEq,
+    MultiplyEq,
+    DivideEq,
 }
 
 // Token Enum
@@ -77,22 +81,42 @@ impl Lexer {
             }
             Some('+') => {
                 self.advance();
-                Token::Arithmetic(MathToken::Plus)
+                if let Some('=') = self.current_char {
+                    self.advance();
+                    Token::Arithmetic(MathToken::PlusEq)
+                } else {
+                    Token::Arithmetic(MathToken::Plus)
+                }
             }
             Some('-') => {
                 self.advance();
-                Token::Arithmetic(MathToken::Minus)
+                if let Some('=') = self.current_char {
+                    self.advance();
+                    Token::Arithmetic(MathToken::MinusEq)
+                } else {
+                    Token::Arithmetic(MathToken::Minus)
+                }
             }
             Some('*') => {
                 self.advance();
-                Token::Arithmetic(MathToken::Multiply)
+                if let Some('=') = self.current_char {
+                    self.advance();
+                    Token::Arithmetic(MathToken::MultiplyEq)
+                } else {
+                    Token::Arithmetic(MathToken::Multiply)
+                }
             }
             Some('/') => {
                 self.advance();
-                Token::Arithmetic(MathToken::Divide)
+                if let Some('=') = self.current_char {
+                    self.advance();
+                    Token::Arithmetic(MathToken::DivideEq)
+                } else {
+                    Token::Arithmetic(MathToken::Divide)
+                }
             }
-            Some(c) if c.is_alphabetic() && c != '"' => self.identifier(),
-            Some(c) if c.is_alphabetic() || c == '"' => self.string(),
+            Some(c) if c.is_alphabetic() => self.identifier(),
+            Some('"') => self.string(),
             Some(c) if c.is_digit(10) => self.number(),
             None => Token::EOF,
             _ => panic!("Unexpected character: {}", self.current_char.unwrap()),
@@ -102,10 +126,7 @@ impl Lexer {
     pub fn number(&mut self) -> Token {
         let mut number = String::new();
         while let Some(c) = self.current_char {
-            if c.is_digit(10) {
-                number.push(c);
-                self.advance();
-            } else if c == '.' {
+            if c.is_digit(10) || c == '.' {
                 number.push(c);
                 self.advance();
             } else {
@@ -118,7 +139,7 @@ impl Lexer {
     pub fn identifier(&mut self) -> Token {
         let mut ident = String::new();
         while let Some(c) = self.current_char {
-            if c.is_alphabetic() {
+            if c.is_alphabetic() || c == '_' {
                 ident.push(c);
                 self.advance();
             } else {
@@ -134,16 +155,17 @@ impl Lexer {
 
     pub fn string(&mut self) -> Token {
         let mut value = String::new();
+        self.advance();
+
         while let Some(c) = self.current_char {
-            if c.is_alphabetic() || c == '"' {
+            if c == '"' {
+                self.advance();
+                break;
+            } else {
                 value.push(c);
                 self.advance();
-            } else {
-                break;
             }
         }
-
-        value = value[1..value.len() - 1].to_owned(); // Strip "" from the string
 
         Token::String(value)
     }
